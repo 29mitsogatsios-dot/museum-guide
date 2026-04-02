@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Museum Guide</title>
+
+  <meta name="theme-color" content="#000000" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <link rel="manifest" href="manifest.json" />
+
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      background: #000;
+      color: white;
+      font-family: Arial, sans-serif;
+      overflow: hidden;
+    }
+
+    body {
+      position: fixed;
+      inset: 0;
+    }
+
+    #app {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      background: #000;
+      overflow: hidden;
+    }
+
+    #titleBar {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 10;
+      background: linear-gradient(to bottom, rgba(0,0,0,0.88), rgba(0,0,0,0.18));
+      text-align: center;
+      padding: 16px 12px 10px 12px;
+      pointer-events: none;
+    }
+
+    #mainTitle {
+      font-size: 7vw;
+      font-weight: bold;
+      margin: 0;
+      line-height: 1.1;
+    }
+
+    #status {
+      font-size: 4.8vw;
+      font-weight: bold;
+      margin-top: 6px;
+      line-height: 1.2;
+    }
+
+    #playerWrap {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      background: #000;
+    }
+
+    #player {
+      width: 100%;
+      height: 100%;
+      border: none;
+      background: #000;
+    }
+
+    #startOverlay {
+      position: absolute;
+      inset: 0;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      background: rgba(0,0,0,0.9);
+      padding: 24px;
+      cursor: pointer;
+    }
+
+    #startBox {
+      max-width: 820px;
+    }
+
+    #startBox h2 {
+      margin: 0 0 12px 0;
+      font-size: 7vw;
+      line-height: 1.15;
+    }
+
+    #startBox p {
+      margin: 0;
+      font-size: 4.5vw;
+      line-height: 1.4;
+      opacity: 0.95;
+    }
+
+    #hint {
+      margin-top: 18px;
+      font-size: 4vw;
+      opacity: 0.85;
+    }
+
+    @media (min-width: 900px) {
+      #mainTitle { font-size: 42px; }
+      #status { font-size: 28px; }
+      #startBox h2 { font-size: 42px; }
+      #startBox p { font-size: 24px; }
+      #hint { font-size: 20px; }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div id="titleBar">
+      <div id="mainTitle">Museum Guide</div>
+      <div id="status">Περιμένω έκθεμα...</div>
+    </div>
+
+    <div id="playerWrap">
+      <iframe
+        id="player"
+        src=""
+        allow="autoplay; encrypted-media; fullscreen"
+        allowfullscreen>
+      </iframe>
+    </div>
+
+    <div id="startOverlay">
+      <div id="startBox">
+        <h2>Ένα άγγιγμα για εκκίνηση</h2>
+        <p>
+          Πάτησε μία φορά στην οθόνη για να ξεκινήσει η εμπειρία.
+          Μετά τα βίντεο θα αλλάζουν αυτόματα ανάλογα με το σήμα από το micro:bit.
+        </p>
+        <div id="hint">Πάτησε οπουδήποτε</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const channelID = "3324930";
+    const fieldNumber = "1";
+
+    const exhibits = {
+      "1": {
+        title: "Έκθεμα 1: Παρθενώνας",
+        embed: "https://www.youtube.com/embed/7NusBTC9dZs?autoplay=1&mute=0&controls=1&rel=0&playsinline=1"
+      },
+      "2": {
+        title: "Έκθεμα 2: Αρχαίο Αγγείο",
+        embed: "https://www.youtube.com/embed/ZLu-Pc1f_Tw?autoplay=1&mute=0&controls=1&rel=0&playsinline=1"
+      }
+    };
+
+    let lastValue = "";
+    let unlocked = false;
+
+    const statusEl = document.getElementById("status");
+    const playerEl = document.getElementById("player");
+    const overlayEl = document.getElementById("startOverlay");
+
+    function loadVideo(value) {
+      if (!exhibits[value]) return;
+      statusEl.textContent = exhibits[value].title;
+      playerEl.src = exhibits[value].embed;
+    }
+
+    async function checkThingSpeak() {
+      try {
+        const url = `https://api.thingspeak.com/channels/${channelID}/fields/${fieldNumber}/last.txt`;
+        const response = await fetch(url, { cache: "no-store" });
+        const value = (await response.text()).trim();
+
+        if (!value || !exhibits[value]) return;
+
+        if (value !== lastValue) {
+          lastValue = value;
+          if (unlocked) {
+            loadVideo(value);
+          } else {
+            statusEl.textContent = exhibits[value].title;
+          }
+        }
+      } catch (error) {
+        statusEl.textContent = "Σφάλμα σύνδεσης";
+      }
+    }
+
+    function unlockExperience() {
+      unlocked = true;
+      overlayEl.style.display = "none";
+
+      if (lastValue && exhibits[lastValue]) {
+        loadVideo(lastValue);
+      } else {
+        statusEl.textContent = "Περιμένω έκθεμα...";
+      }
+
+      const docEl = document.documentElement;
+      if (docEl.requestFullscreen) {
+        docEl.requestFullscreen().catch(() => {});
+      }
+    }
+
+    overlayEl.addEventListener("click", unlockExperience);
+    overlayEl.addEventListener("touchstart", unlockExperience, { passive: true });
+
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("./sw.js").catch(() => {});
+      });
+    }
+
+    setInterval(checkThingSpeak, 3000);
+    checkThingSpeak();
+  </script>
+</body>
+</html>
